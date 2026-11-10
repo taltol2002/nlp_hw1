@@ -23,7 +23,8 @@ def softmax(x):
     else:
         # Vector
         ### YOUR CODE HERE
-        x = np.exp(x - np.max(x)) / (np.sum(np.exp(x - np.max(x))))
+        x_exp = np.exp(x - np.max(x))
+        x = x_exp / (np.sum(x_exp))
         ### END YOUR CODE
 
     assert x.shape == orig_shape
