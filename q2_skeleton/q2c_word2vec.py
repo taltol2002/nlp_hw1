@@ -42,12 +42,13 @@ def naive_softmax_loss_and_gradient(
     y_hat = softmax(z)
     loss = -np.log(y_hat[outside_word_idx])
 
-    y = np.zeros(outside_vectors.shape[0])
-    y[outside_word_idx] = 1.0
-    #TODO explain the formula!!!!!!!!!!
-    grad_center_vec = outside_vectors.T @ (y_hat - y)
+    # y_diff = y_hat - y (one-hot at outside_word_idx)
+    y_diff = y_hat.copy()
+    y_diff[outside_word_idx] -= 1.0
 
-    y_diff = y_hat - y
+    # dJ/dv_c = sum_w(y_diff[w] * u_w) = U^T @ y_diff
+    grad_center_vec = outside_vectors.T @ y_diff
+    # Row w of dJ/dU is y_diff[w] * v_c, equivalent to outer(y_diff, v_c)
     grad_outside_vecs = np.outer(y_diff, center_word_vec)
     ### END YOUR CODE
 
@@ -81,36 +82,36 @@ def neg_sampling_loss_and_gradient(
     indices = [outside_word_idx] + neg_sample_word_indices
 
     ### YOUR CODE HERE
-    score_true = outside_vectors[outside_word_idx] @ center_word_vec
-    loss_true = -np.log(sigmoid(score_true))
+    # extract the positive and negative outside word vectors
+    vec_true = outside_vectors[outside_word_idx]
+    vecs_neg = outside_vectors[neg_sample_word_indices]
 
-    scores_neg = outside_vectors[neg_sample_word_indices] @ center_word_vec
-    loss_neg = -np.sum(np.log(sigmoid(-scores_neg)))
-
-    loss = loss_true + loss_neg
-
-    # calculate grad_center_vec
-    # initialize the outside word vectors gradient matrix with zeros
-    grad_outside_vecs = np.zeros_like(outside_vectors)
-
-    # apply sigmoid to get the probabilities
+    # compute dot-product scores and sigmoid probabilities
+    score_true = vec_true @ center_word_vec
+    scores_neg = vecs_neg @ center_word_vec
     prob_true = sigmoid(score_true)
     probs_neg = sigmoid(-scores_neg)
 
+    # calculate the negative sampling loss
+    loss_true = -np.log(prob_true)
+    loss_neg = -np.sum(np.log(probs_neg))
+    loss = loss_true + loss_neg
+
     # calculate the gradient for the center word vector (grad_center_vec)
-    grad_center_true = -(1.0 - prob_true) * outside_vectors[outside_word_idx]
-    grad_center_neg = (1.0 - probs_neg) @ outside_vectors[neg_sample_word_indices]
+    grad_center_true = -(1.0 - prob_true) * vec_true
+    grad_center_neg = (1.0 - probs_neg) @ vecs_neg
     grad_center_vec = grad_center_true + grad_center_neg
 
-
     # calculate the gradient for the outside word vectors matrix (grad_outside_vecs)
+    grad_outside_vecs = np.zeros_like(outside_vectors)
+
     # update for the positive word
     grad_outside_vecs[outside_word_idx] += -(1.0 - prob_true) * center_word_vec
 
-    # update for negative words using np.add.at to handle double counting (duplicate indices)
+    # update for negative words using np.add.at
+    # to handle double counting (duplicate indices)
     grad_neg_matrix = np.outer(1.0 - probs_neg, center_word_vec)
     np.add.at(grad_outside_vecs, neg_sample_word_indices, grad_neg_matrix)
-
     ### END YOUR CODE
 
     return loss, grad_center_vec, grad_outside_vecs
@@ -151,17 +152,16 @@ def skipgram(current_center_word, outside_words, word2ind,
 
     ### YOUR CODE HERE
     center_idx = word2ind[current_center_word]
-    curr_cen_vec = center_word_vectors[center_idx]
-    # TODO check if we shold implement this in numpy instead of for
-    for out_st in outside_words:
-        out_idx = word2ind[out_st]
-        out_vec = outside_vectors[out_idx]
+    curr_center_vec = center_word_vectors[center_idx]
+
+    # accumulate loss and gradients across all context words
+    for out_word in outside_words:
+        out_idx = word2ind[out_word]
         step_loss, grad_center, grad_out = word2vec_loss_and_gradient(
-            curr_cen_vec, out_idx, outside_vectors, dataset)
+            curr_center_vec, out_idx, outside_vectors, dataset)
         loss += step_loss
         grad_center_vecs[center_idx] += grad_center
         grad_outside_vectors += grad_out
-
     ### END YOUR CODE
 
     return loss, grad_center_vecs, grad_outside_vectors

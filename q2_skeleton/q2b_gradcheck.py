@@ -36,16 +36,20 @@ def gradcheck_naive(f, x, gradient_text=""):
         # to test cost functions with built in randomness later.
 
         ### YOUR CODE HERE:
-        x[ix] = x[ix] + h
+        orig_val = x[ix]
+
+        # Evaluate f(x + h) and f(x - h)
+        x[ix] = orig_val + h
         random.setstate(rndstate)
         fx_plus_h, _ = f(x)
 
-        x[ix] = x[ix] - 2*h
+        x[ix] = orig_val - h
         random.setstate(rndstate)
         fx_minus_h, _ = f(x)
 
-        x[ix] = x[ix] + h
-        numgrad = (fx_plus_h - fx_minus_h) / (2*h)
+        # Restore original value
+        x[ix] = orig_val
+        numgrad = (fx_plus_h - fx_minus_h) / (2 * h)
         ### END YOUR CODE
 
         # Compare gradients
@@ -81,7 +85,11 @@ def your_gradcheck_test():
     """
     print("Running your sanity checks...")
     ### YOUR OPTIONAL CODE HERE
-    pass
+    cubic = lambda x: (np.sum(x ** 3), 3 * (x ** 2))
+    gradcheck_naive(cubic, np.random.randn(3, 4))
+
+    sin_fn = lambda x: (np.sum(np.sin(x)), np.cos(x))
+    gradcheck_naive(sin_fn, np.random.randn(2, 3))
     ### END YOUR CODE
 
 
